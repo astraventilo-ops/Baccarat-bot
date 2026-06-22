@@ -4,41 +4,45 @@ import re
 import threading
 import base64
 from flask import Flask
-# Import du module de contournement gratuit
-import cloudscraper
 
-# 1. Serveur Web Flask pour maintenir Render actif
+# ==================== CONFIGURATION MIROIR MELBET ====================
+# Si melbet.com est bloqué par Render, tu pourras changer ce domaine par un miroir
+DOMAINE_MIROIR = "melbet.com" 
+# =====================================================================
+
+# 1. Serveur Web Flask pour garder l'instance Render active
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Predictor Baccara en ligne (Moteur CloudScraper)...", 200
+    return "Bot Predictor Baccara Melbet opérationnel sur Render...", 200
 
 def lancer_serveur_web():
     import os
+    # Render attribue dynamiquement un port via la variable d'environnement PORT
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# 2. Classe principale du Predictor Baccara
-class BotBaccaratPredictor:
+# 2. Classe principale du Predictor Baccara adapté pour Melbet
+class BotBaccaratMelbetRender:
     def __init__(self):
-        self.url_live = "https://1xbet.com/LiveFeed/GetGamesObjects"
+        self.url_live = f"https://{DOMAINE_MIROIR}/LiveFeed/GetGamesObjects"
         self.dernier_round_vu = None
         self.historique_cartes = []
         
-        # Configuration GitHub pour l'enregistrement de l'historique
+        # Configuration GitHub pour l'enregistrement de la base de données
         self.github_token = "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"
         self.repo_name = "astraventilo-ops/Baccarat-bot"
         self.file_path = "base_donnees.txt"
         
-        # Initialisation du scraper anti-blocage automatique
-        self.scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True
-            }
-        )
+        # En-têtes pour simuler un vrai navigateur depuis les serveurs de Render
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": f"https://{DOMAINE_MIROIR}/fr/live/esports",
+            "Origin": f"https://{DOMAINE_MIROIR}"
+        }
 
     def charger_historique_github(self):
         url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
@@ -49,7 +53,7 @@ class BotBaccaratPredictor:
                 contenu_base64 = r.json()['content']
                 texte = base64.b64decode(contenu_base64).decode('utf-8')
                 self.historique_cartes = [c for c in texte.strip().split(',') if c]
-                print(f"📚 Base de données chargée ! {len(self.historique_cartes)} rounds en mémoire.", flush=True)
+                print(f"📚 Base de données GitHub chargée ! {len(self.historique_cartes)} rounds en mémoire.", flush=True)
             else:
                 print("📝 Création d'une nouvelle base de données sur GitHub.", flush=True)
                 self.historique_cartes = []
@@ -69,7 +73,7 @@ class BotBaccaratPredictor:
             sha = r.json()['sha']
             
         data = {
-            "message": f"Ajout carte réelle: {nouvelle_carte}",
+            "message": f"Ajout carte réelle Melbet: {nouvelle_carte}",
             "content": base64.b64encode(nouveau_contenu.encode('utf-8')).decode('utf-8')
         }
         if sha:
@@ -81,13 +85,10 @@ class BotBaccaratPredictor:
         except Exception as e:
             print(f"⚠️ Erreur sauvegarde GitHub : {e}", flush=True)
 
-    def extraire_donnees_reelles_1xbet(self):
+    def extraire_donnees_melbet(self):
         parametres = {"sport": 110, "chnt": 1, "count": 50, "lang": "fr", "isCyber": "true"}
-        
         try:
-            # Exécution de la requête via le scraper simulant un vrai navigateur
-            reponse = self.scraper.get(self.url_live, params=parametres, timeout=15)
-            
+            reponse = requests.get(self.url_live, params=parametres, headers=self.headers, timeout=12)
             if reponse.status_code == 200:
                 donnees = reponse.json()
                 matchs = donnees.get("Value", [])
@@ -113,14 +114,13 @@ class BotBaccaratPredictor:
                             
                         return num_round, enseigne_detectee
             else:
-                print(f"❌ Statut API 1xBet : {reponse.status_code}. Tentative de contournement en cours...", flush=True)
+                print(f"❌ Erreur API Melbet (Code Statut : {reponse.status_code}).", flush=True)
         except Exception as e:
-            print(f"⚠️ Échec de la requête réseau : {e}", flush=True)
+            print(f"⚠️ Échec de la requête réseau vers Melbet : {e}", flush=True)
         return None, None
 
     def calculer_prediction_motifs(self, num_round):
-        print(f"\n================ 📊 ANALYSE TOUR N° {num_round} ================", flush=True)
-        
+        print(f"\n================ 📊 ANALYSE MELBET TOUR N° {num_round} ================", flush=True)
         if len(self.historique_cartes) < 4:
             print(f"⏳ Base de données en cours de construction ({len(self.historique_cartes)}/4 cartes). En attente...", flush=True)
             return
@@ -157,21 +157,21 @@ class BotBaccaratPredictor:
             print("🤷 Motif de cartes inédit. En attente de nouvelles données historiques...", flush=True)
 
     def executer(self):
-        print("🚀 [START] Lancement du Bot Prédictif Baccara (Solution Gratuite)...", flush=True)
+        print(f"🚀 [START] Lancement du Bot Prédictif Melbet sur Render (Cible : {DOMAINE_MIROIR})...", flush=True)
         self.charger_historique_github()
         
         while True:
-            vrai_round, vraie_carte = self.extraire_donnees_reelles_1xbet()
-            
+            vrai_round, vraie_carte = self.extraire_donnees_melbet()
             if vrai_round and vrai_round != self.dernier_round_vu:
                 self.dernier_round_vu = vrai_round
                 self.sauvegarder_tour_github(vraie_carte)
                 self.calculer_prediction_motifs(vrai_round)
-            
             time.sleep(15)
 
 if __name__ == "__main__":
-    print("✨ [SYSTEME] Initialisation du moteur de requêtage...", flush=True)
+    print("✨ [SYSTEME] Initialisation du serveur Flask...", flush=True)
+    # Lancement du serveur en tâche de fond pour Render
     threading.Thread(target=lancer_serveur_web, daemon=True).start()
-    bot = BotBaccaratPredictor()
+    
+    bot = BotBaccaratMelbetRender()
     bot.executer()
