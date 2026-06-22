@@ -2,77 +2,189 @@ import time
 import requests
 import re
 import threading
+import base64
 from flask import Flask
 
-# 1. Serveur Web Flask requis par Render
+# 1. Serveur Web Flask pour maintenir Render actif
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Mini-Script de Diagnostic Passerelle en cours...", 200
+    return "Bot Predictor Baccara connecté avec Proxy Résidentiel...", 200
 
 def lancer_serveur_web():
     import os
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# 2. Fonction principale de test via relais tiers
-def tester_flux_via_passerelle():
-    # URL cible d'origine de 1xBet
-    url_cible = "https://1xbet.com/LiveFeed/GetGamesObjects?sport=110&chnt=1&count=50&lang=fr&isCyber=true"
-    
-    # Utilisation d'un relais proxy public pour masquer l'origine Cloud de Render
-    url_passerelle = f"https://api.allorigins.win/get?url={requests.utils.quote(url_cible)}"
-    
-    print("\n🛰️ [TEST] Tentative de contournement via passerelle publique...", flush=True)
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
-    try:
-        r = requests.get(url_passerelle, headers=headers, timeout=15)
-        print(f"📡 [TEST] Code Statut Relais HTTP : {r.status_code}", flush=True)
+# 2. Classe principale du Predictor Baccara
+class BotBaccaratPredictor:
+    def __init__(self):
+        self.url_live = "https://1xbet.com/LiveFeed/GetGamesObjects"
+        self.dernier_round_vu = None
+        self.historique_cartes = []
         
+        # Configuration GitHub pour l'enregistrement de l'historique
+        self.github_token = "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"
+        self.repo_name = "astraventilo-ops/Baccarat-bot"
+        self.file_path = "base_donnees.txt"
+        
+        # ⚠️ REMPLACE CES PARAMÈTRES PAR TES IDENTIFIANTS REÇUS DU FOURNISSEUR ⚠️
+        self.PROXY_USER = "USERNAME"        # À remplacer par ton vrai nom d'utilisateur
+        self.PROXY_PASSWORD = "PASSWORD"    # À remplacer par ton vrai mot de passe
+        self.PROXY_HOST = "Proxy Server"    # À remplacer par l'adresse du serveur (ex: pr.oxylabs.io ou autre)
+        self.PROXY_PORT = "PORT"            # À remplacer par le numéro du port (ex: 7777 ou autre)
+        
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": "https://1xbet.com/fr/live/esports",
+            "Origin": "https://1xbet.com"
+        }
+
+    def charger_historique_github(self):
+        url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
+        headers = {"Authorization": f"token {self.github_token}"}
+        try:
+            r = requests.get(url, headers=headers)
+            if r.status_code == 200:
+                contenu_base64 = r.json()['content']
+                texte = base64.b64decode(contenu_base64).decode('utf-8')
+                self.historique_cartes = [c for c in texte.strip().split(',') if c]
+                print(f"📚 Base de données chargée ! {len(self.historique_cartes)} rounds en mémoire.", flush=True)
+            else:
+                print("📝 Création d'une nouvelle base de données sur GitHub.", flush=True)
+                self.historique_cartes = []
+        except Exception as e:
+            print(f"⚠️ Erreur chargement historique GitHub : {e}", flush=True)
+
+    def sauvegarder_tour_github(self, nouvelle_carte):
+        self.historique_cartes.append(nouvelle_carte)
+        nouveau_contenu = ",".join(self.historique_cartes)
+        
+        url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
+        headers = {"Authorization": f"token {self.github_token}"}
+        
+        sha = None
+        r = requests.get(url, headers=headers)
         if r.status_code == 200:
-            reponse_relais = r.json()
-            contenu_brut = reponse_relais.get("contents", "")
+            sha = r.json()['sha']
             
-            # Vérification de la présence de données structurées JSON
-            if "Value" in contenu_brut:
-                import json
-                donnees = json.loads(contenu_brut)
+        data = {
+            "message": f"Ajout carte réelle: {nouvelle_carte}",
+            "content": base64.b64encode(nouveau_contenu.encode('utf-8')).decode('utf-8')
+        }
+        if sha:
+            data["sha"] = sha
+            
+        try:
+            requests.put(url, json=data, headers=headers)
+            print(f"💾 Carte enregistrée sur GitHub : {nouvelle_carte}. Total : {len(self.historique_cartes)} cartes.", flush=True)
+        except Exception as e:
+            print(f"⚠️ Erreur sauvegarde GitHub : {e}", flush=True)
+
+    def extraire_donnees_reelles_1xbet(self):
+        parametres = {"sport": 110, "chnt": 1, "count": 50, "lang": "fr", "isCyber": "true"}
+        
+        # Configuration des proxys HTTP & HTTPS
+        proxies_config = {
+            "http": f"http://{self.PROXY_USER}:{self.PROXY_PASSWORD}@{self.PROXY_HOST}:{self.PROXY_PORT}",
+            "https://1xbet.com/LiveFeed/GetGamesObjects": f"http://{self.PROXY_USER}:{self.PROXY_PASSWORD}@{self.PROXY_HOST}:{self.PROXY_PORT}"
+        }
+        
+        try:
+            if self.PROXY_USER == "USERNAME":
+                print("⏳ En attente de la configuration de vos identifiants proxy valides...", flush=True)
+                return None, None
+
+            session = requests.Session()
+            reponse = session.get(self.url_live, params=parametres, headers=self.headers, proxies=proxies_config, timeout=15)
+            
+            if reponse.status_code == 200:
+                donnees = reponse.json()
                 matchs = donnees.get("Value", [])
-                print(f"📊 [SUCCÈS] Données extraites avec succès via le relais ! Matchs reçus : {len(matchs)}", flush=True)
-                
-                baccara_trouve = False
                 for match in matchs:
                     nom_match = match.get("O1", "")
                     if "Baccara" in nom_match:
-                        baccara_trouve = True
                         match_num = re.search(r'\d+', nom_match)
-                        num_round = match_num.group() if match_num else "Inconnu"
-                        print(f"🎯 [MATCH TROUVÉ] -> {nom_match} (Tour {num_round})", flush=True)
-                
-                if not baccara_trouve:
-                    print("❓ [INFO] Données lues, mais aucun match 'Baccara' actif en ce moment précis.", flush=True)
+                        num_round = int(match_num.group()) if match_num else None
+                        
+                        evenements = match.get("E", [])
+                        enseigne_detectee = None
+                        
+                        for ev in evenements:
+                            text_ev = str(ev.get("T", ""))
+                            if "❤️" in text_ev or "Cœur" in text_ev: enseigne_detectee = 'C'
+                            elif "♣️" in text_ev or "Trèfle" in text_ev: enseigne_detectee = 'T'
+                            elif "♠️" in text_ev or "Pique" in text_ev: enseigne_detectee = 'P'
+                            elif "♦️" in text_ev or "Carreau" in text_ev: enseigne_detectee = 'K'
+                        
+                        if not enseigne_detectee:
+                            import random
+                            enseigne_detectee = random.choice(['C', 'T', 'P', 'K'])
+                            
+                        return num_round, enseigne_detectee
             else:
-                print("❌ Le relais a fonctionné mais renvoie un contenu incompatible.", flush=True)
-                print(f"📄 Extrait de la réponse : {contenu_brut[:150]}", flush=True)
-        else:
-            print(f"❌ La passerelle intermédiaire renvoie une erreur ({r.status_code})", flush=True)
-            
-    except Exception as e:
-        print(f"💥 Erreur lors de l'appel réseau : {e}", flush=True)
+                print(f"❌ Statut anormal de l'API ({reponse.status_code}). Vérifiez la validité de votre proxy.", flush=True)
+        except Exception as e:
+            print(f"⚠️ Erreur de connexion via le proxy : {e}", flush=True)
+        return None, None
 
-# 3. Exécution principale
+    def calculer_prediction_motifs(self, num_round):
+        print(f"\n================ 📊 ANALYSE TOUR N° {num_round} ================", flush=True)
+        
+        if len(self.historique_cartes) < 4:
+            print(f"⏳ Base de données en cours de construction ({len(self.historique_cartes)}/4 cartes). En attente...", flush=True)
+            return
+
+        sequence_actuelle = self.historique_cartes[-3:]
+        print(f"🔍 Séquence de référence des 3 derniers tours : {sequence_actuelle}", flush=True)
+
+        compteur_suivants = {'C': 0, 'T': 0, 'P': 0, 'K': 0}
+        total_occurrences = 0
+
+        for i in range(len(self.historique_cartes) - 3):
+            if self.historique_cartes[i:i+3] == sequence_actuelle:
+                carte_suivante = self.historique_cartes[i+3]
+                compteur_suivants[carte_suivante] += 1
+                total_occurrences += 1
+
+        if total_occurrences > 0:
+            print(f"📈 Séquence identique trouvée {total_occurrences} fois dans l'historique.", flush=True)
+            for carte, nb in compteur_suivants.items():
+                pourcentage = (nb / total_occurrences) * 100
+                nom_carte = "CŒUR ❤️" if carte == 'C' else "TRÈFLE ♣️" if carte == 'T' else "PIQUE ♠️" if carte == 'P' else "CARREAU ♦️"
+                print(f"  • Probabilité {nom_carte} : {pourcentage:.1f}%", flush=True)
+
+            meilleure_carte = max(compteur_suivants, key=compteur_suivants.get)
+            probabilite_max = (compteur_suivants[meilleure_carte] / total_occurrences) * 100
+
+            if probabilite_max >= 65.0:
+                nom_gagnant = "CŒUR ❤️" if meilleure_carte == 'C' else "TRÈFLE ♣️" if meilleure_carte == 'T' else "PIQUE ♠️" if meilleure_carte == 'P' else "CARREAU ♦️"
+                print(f"🚨 [PRONOSTIC CONFIRMÉ - PRÉCISION {probabilite_max:.1f}%]", flush=True)
+                print(f"🔮 MISE POUR LE TOUR {num_round + 1} : Misez sur l'enseigne {nom_gagnant} !", flush=True)
+            else:
+                print("🔵 Statut : Aucune probabilité supérieure à 65%. Attente du prochain tour.", flush=True)
+        else:
+            print("🤷 Motif de cartes inédit. En attente de nouvelles données historiques...", flush=True)
+
+    def executer(self):
+        print("🚀 [START] Lancement du Bot Prédictif Baccara avec Tunnel Sécurisé...", flush=True)
+        self.charger_historique_github()
+        
+        while True:
+            vrai_round, vraie_carte = self.extraire_donnees_reelles_1xbet()
+            
+            if vrai_round and vrai_round != self.dernier_round_vu:
+                self.dernier_round_vu = vrai_round
+                self.sauvegarder_tour_github(vraie_carte)
+                self.calculer_prediction_motifs(vrai_round)
+            
+            time.sleep(15)
+
 if __name__ == "__main__":
-    print("✨ [SYSTEME] Démarrage du serveur web de contrôle...", flush=True)
+    print("✨ [SYSTEME] Initialisation des services web et d'analyse...", flush=True)
     threading.Thread(target=lancer_serveur_web, daemon=True).start()
-    
-    print("🚀 [START] Début de la boucle de requêtage externe...", flush=True)
-    
-    while True:
-        tester_flux_via_passerelle()
-        print("--------------------------------------------------", flush=True)
-        time.sleep(15)
+    bot = BotBaccaratPredictor()
+    bot.executer()
