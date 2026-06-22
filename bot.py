@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Predictor Baccara connecté avec Proxy Résidentiel...", 200
+    return "Bot Predictor Baccara connecté avec Smartproxy Résidentiel...", 200
 
 def lancer_serveur_web():
     import os
@@ -29,11 +29,11 @@ class BotBaccaratPredictor:
         self.repo_name = "astraventilo-ops/Baccarat-bot"
         self.file_path = "base_donnees.txt"
         
-        # ⚠️ REMPLACE CES PARAMÈTRES PAR TES IDENTIFIANTS REÇUS DU FOURNISSEUR ⚠️
-        self.PROXY_USER = "USERNAME"        # À remplacer par ton vrai nom d'utilisateur
-        self.PROXY_PASSWORD = "PASSWORD"    # À remplacer par ton vrai mot de passe
-        self.PROXY_HOST = "Proxy Server"    # À remplacer par l'adresse du serveur (ex: pr.oxylabs.io ou autre)
-        self.PROXY_PORT = "PORT"            # À remplacer par le numéro du port (ex: 7777 ou autre)
+        # Identifiants Smartproxy mis à jour
+        self.PROXY_USER = "smart-c956sfdh76nj"
+        self.PROXY_PASSWORD = "8wnq6l4wdtrI4Elo"
+        self.PROXY_HOST = "proxy.smartproxy.net"
+        self.PROXY_PORT = "3120"
         
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -87,17 +87,13 @@ class BotBaccaratPredictor:
     def extraire_donnees_reelles_1xbet(self):
         parametres = {"sport": 110, "chnt": 1, "count": 50, "lang": "fr", "isCyber": "true"}
         
-        # Configuration des proxys HTTP & HTTPS
+        # Tunnelisation par proxy résidentiel Smartproxy
         proxies_config = {
             "http": f"http://{self.PROXY_USER}:{self.PROXY_PASSWORD}@{self.PROXY_HOST}:{self.PROXY_PORT}",
             "https://1xbet.com/LiveFeed/GetGamesObjects": f"http://{self.PROXY_USER}:{self.PROXY_PASSWORD}@{self.PROXY_HOST}:{self.PROXY_PORT}"
         }
         
         try:
-            if self.PROXY_USER == "USERNAME":
-                print("⏳ En attente de la configuration de vos identifiants proxy valides...", flush=True)
-                return None, None
-
             session = requests.Session()
             reponse = session.get(self.url_live, params=parametres, headers=self.headers, proxies=proxies_config, timeout=15)
             
@@ -126,9 +122,9 @@ class BotBaccaratPredictor:
                             
                         return num_round, enseigne_detectee
             else:
-                print(f"❌ Statut anormal de l'API ({reponse.status_code}). Vérifiez la validité de votre proxy.", flush=True)
+                print(f"❌ Erreur API 1xBet (Code Statut : {reponse.status_code}). Le proxy a peut-être rejeté la connexion.", flush=True)
         except Exception as e:
-            print(f"⚠️ Erreur de connexion via le proxy : {e}", flush=True)
+            print(f"⚠️ Échec de la liaison réseau via Smartproxy : {e}", flush=True)
         return None, None
 
     def calculer_prediction_motifs(self, num_round):
@@ -170,7 +166,7 @@ class BotBaccaratPredictor:
             print("🤷 Motif de cartes inédit. En attente de nouvelles données historiques...", flush=True)
 
     def executer(self):
-        print("🚀 [START] Lancement du Bot Prédictif Baccara avec Tunnel Sécurisé...", flush=True)
+        print("🚀 [START] Lancement du Bot Prédictif Baccara via Smartproxy Résidentiel...", flush=True)
         self.charger_historique_github()
         
         while True:
@@ -184,7 +180,7 @@ class BotBaccaratPredictor:
             time.sleep(15)
 
 if __name__ == "__main__":
-    print("✨ [SYSTEME] Initialisation des services web et d'analyse...", flush=True)
+    print("✨ [SYSTEME] Initialisation des services d'analyse...", flush=True)
     threading.Thread(target=lancer_serveur_web, daemon=True).start()
     bot = BotBaccaratPredictor()
     bot.executer()
