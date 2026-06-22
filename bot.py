@@ -5,37 +5,38 @@ import threading
 import base64
 from flask import Flask
 
-# ==================== CONFIGURATION MIROIR MELBET ====================
-# Si melbet.com est bloqué par Render, tu pourras changer ce domaine par un miroir
+# ==================== CONFIGURATION PRINCIPALE ====================
 DOMAINE_MIROIR = "melbet.com" 
-# =====================================================================
 
-# 1. Serveur Web Flask pour garder l'instance Render active
+# Identifiants extraits de ta capture Webshare (Ligne 1)
+PROXY_USER = "ehnefouc"
+PROXY_PASS = "1fu4wk7gts13"
+PROXY_HOST = "31.59.20.176"  # Première adresse IP de ta liste
+PROXY_PORT = "6754"          # Port correspondant (colonne F)
+# ==================================================================
+
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Predictor Baccara Melbet opérationnel sur Render...", 200
+    return "Bot Predictor Baccara Melbet opérationnel avec IP Webshare dédiée.", 200
 
 def lancer_serveur_web():
     import os
-    # Render attribue dynamiquement un port via la variable d'environnement PORT
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# 2. Classe principale du Predictor Baccara adapté pour Melbet
-class BotBaccaratMelbetRender:
+class BotBaccaratMelbetProxy:
     def __init__(self):
         self.url_live = f"https://{DOMAINE_MIROIR}/LiveFeed/GetGamesObjects"
         self.dernier_round_vu = None
         self.historique_cartes = []
         
-        # Configuration GitHub pour l'enregistrement de la base de données
+        # Configuration GitHub
         self.github_token = "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"
         self.repo_name = "astraventilo-ops/Baccarat-bot"
         self.file_path = "base_donnees.txt"
         
-        # En-têtes pour simuler un vrai navigateur depuis les serveurs de Render
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
@@ -43,6 +44,13 @@ class BotBaccaratMelbetRender:
             "Referer": f"https://{DOMAINE_MIROIR}/fr/live/esports",
             "Origin": f"https://{DOMAINE_MIROIR}"
         }
+
+        # Formatage de la chaîne de proxy pour HTTP et HTTPS
+        self.proxies = {
+            "http": f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}",
+            "https": f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
+        }
+        print(f"💡 [PROXY] Route Webshare activée via l'IP {PROXY_HOST}:{PROXY_PORT}", flush=True)
 
     def charger_historique_github(self):
         url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
@@ -81,14 +89,21 @@ class BotBaccaratMelbetRender:
             
         try:
             requests.put(url, json=data, headers=headers)
-            print(f"💾 Carte enregistrée sur GitHub : {nouvelle_carte}. Total : {len(self.historique_cartes)} cartes.", flush=True)
+            print(f"💾 Carte enregistrée sur GitHub : {nouvelle_carte}.", flush=True)
         except Exception as e:
             print(f"⚠️ Erreur sauvegarde GitHub : {e}", flush=True)
 
     def extraire_donnees_melbet(self):
         parametres = {"sport": 110, "chnt": 1, "count": 50, "lang": "fr", "isCyber": "true"}
         try:
-            reponse = requests.get(self.url_live, params=parametres, headers=self.headers, timeout=12)
+            # La requête passe maintenant de manière transparente par ton IP Webshare résidentielle
+            reponse = requests.get(
+                self.url_live, 
+                params=parametres, 
+                headers=self.headers, 
+                proxies=self.proxies, 
+                timeout=15
+            )
             if reponse.status_code == 200:
                 donnees = reponse.json()
                 matchs = donnees.get("Value", [])
@@ -116,17 +131,17 @@ class BotBaccaratMelbetRender:
             else:
                 print(f"❌ Erreur API Melbet (Code Statut : {reponse.status_code}).", flush=True)
         except Exception as e:
-            print(f"⚠️ Échec de la requête réseau vers Melbet : {e}", flush=True)
+            print(f"⚠️ Échec de la requête réseau via le proxy Webshare : {e}", flush=True)
         return None, None
 
     def calculer_prediction_motifs(self, num_round):
         print(f"\n================ 📊 ANALYSE MELBET TOUR N° {num_round} ================", flush=True)
         if len(self.historique_cartes) < 4:
-            print(f"⏳ Base de données en cours de construction ({len(self.historique_cartes)}/4 cartes). En attente...", flush=True)
+            print(f"⏳ Base de données en cours de construction ({len(self.historique_cartes)}/4 cartes)...", flush=True)
             return
 
         sequence_actuelle = self.historique_cartes[-3:]
-        print(f"🔍 Séquence de référence des 3 derniers tours : {sequence_actuelle}", flush=True)
+        print(f"🔍 Séquence de référence : {sequence_actuelle}", flush=True)
 
         compteur_suivants = {'C': 0, 'T': 0, 'P': 0, 'K': 0}
         total_occurrences = 0
@@ -138,7 +153,6 @@ class BotBaccaratMelbetRender:
                 total_occurrences += 1
 
         if total_occurrences > 0:
-            print(f"📈 Séquence identique trouvée {total_occurrences} fois dans l'historique.", flush=True)
             for carte, nb in compteur_suivants.items():
                 pourcentage = (nb / total_occurrences) * 100
                 nom_carte = "CŒUR ❤️" if carte == 'C' else "TRÈFLE ♣️" if carte == 'T' else "PIQUE ♠️" if carte == 'P' else "CARREAU ♦️"
@@ -150,14 +164,14 @@ class BotBaccaratMelbetRender:
             if probabilite_max >= 65.0:
                 nom_gagnant = "CŒUR ❤️" if meilleure_carte == 'C' else "TRÈFLE ♣️" if meilleure_carte == 'T' else "PIQUE ♠️" if meilleure_carte == 'P' else "CARREAU ♦️"
                 print(f"🚨 [PRONOSTIC CONFIRMÉ - PRÉCISION {probabilite_max:.1f}%]", flush=True)
-                print(f"🔮 MISE POUR LE TOUR {num_round + 1} : Misez sur l'enseigne {nom_gagnant} !", flush=True)
+                print(f"🔮 MISE POUR LE TOUR {num_round + 1} : Misez sur {nom_gagnant} !", flush=True)
             else:
                 print("🔵 Statut : Aucune probabilité supérieure à 65%. Attente du prochain tour.", flush=True)
         else:
-            print("🤷 Motif de cartes inédit. En attente de nouvelles données historiques...", flush=True)
+            print("🤷 Motif de cartes inconnu. En attente de nouvelles données...", flush=True)
 
     def executer(self):
-        print(f"🚀 [START] Lancement du Bot Prédictif Melbet sur Render (Cible : {DOMAINE_MIROIR})...", flush=True)
+        print(f"🚀 [START] Bot Baccara Melbet en ligne sur Render.", flush=True)
         self.charger_historique_github()
         
         while True:
@@ -169,9 +183,6 @@ class BotBaccaratMelbetRender:
             time.sleep(15)
 
 if __name__ == "__main__":
-    print("✨ [SYSTEME] Initialisation du serveur Flask...", flush=True)
-    # Lancement du serveur en tâche de fond pour Render
     threading.Thread(target=lancer_serveur_web, daemon=True).start()
-    
-    bot = BotBaccaratMelbetRender()
+    bot = BotBaccaratMelbetProxy()
     bot.executer()
