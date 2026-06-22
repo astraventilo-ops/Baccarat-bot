@@ -52,7 +52,7 @@ class BotBaccaratPredictor:
         nouveau_contenu = ",".join(self.historique_cartes)
         
         url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
-        headers = {"Authorization": f"token {self.github_token}"}"
+        headers = {"Authorization": f"token {self.github_token}"}
         
         sha = None
         r = requests.get(url, headers=headers)
@@ -86,12 +86,9 @@ class BotBaccaratPredictor:
                         match_num = re.search(r'\d+', nom_match)
                         num_round = int(match_num.group()) if match_num else None
                         
-                        # Extraction de la première carte distribuée au joueur (Player Card 1) dans les événements du match
                         evenements = match.get("E", [])
                         enseigne_detectee = None
                         
-                        # Analyse textuelle ou via les IDs des marchés 1xBet pour trouver l'enseigne
-                        # En cas de structure asynchrone, on sécurise avec un scraping textuel par défaut stabilisé
                         for ev in evenements:
                             text_ev = str(ev.get("T", ""))
                             if "❤️" in text_ev or "Cœur" in text_ev: enseigne_detectee = 'C'
@@ -99,7 +96,6 @@ class BotBaccaratPredictor:
                             elif "♠️" in text_ev or "Pique" in text_ev: enseigne_detectee = 'P'
                             elif "♦️" in text_ev or "Carreau" in text_ev: enseigne_detectee = 'K'
                         
-                        # Si l'API renvoie uniquement les scores, on prend la dernière carte simulée de manière logique stabilisée
                         if not enseigne_detectee:
                             import random
                             enseigne_detectee = random.choice(['C', 'T', 'P', 'K'])
