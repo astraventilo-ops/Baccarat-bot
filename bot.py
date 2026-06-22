@@ -4,13 +4,15 @@ import re
 import threading
 import base64
 from flask import Flask
+# Import du module de contournement gratuit
+import cloudscraper
 
 # 1. Serveur Web Flask pour maintenir Render actif
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Predictor Baccara connecté avec Smartproxy Résidentiel...", 200
+    return "Bot Predictor Baccara en ligne (Moteur CloudScraper)...", 200
 
 def lancer_serveur_web():
     import os
@@ -29,19 +31,14 @@ class BotBaccaratPredictor:
         self.repo_name = "astraventilo-ops/Baccarat-bot"
         self.file_path = "base_donnees.txt"
         
-        # Identifiants Smartproxy mis à jour
-        self.PROXY_USER = "smart-c956sfdh76nj"
-        self.PROXY_PASSWORD = "8wnq6l4wdtrI4Elo"
-        self.PROXY_HOST = "proxy.smartproxy.net"
-        self.PROXY_PORT = "3120"
-        
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Referer": "https://1xbet.com/fr/live/esports",
-            "Origin": "https://1xbet.com"
-        }
+        # Initialisation du scraper anti-blocage automatique
+        self.scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'desktop': True
+            }
+        )
 
     def charger_historique_github(self):
         url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
@@ -87,15 +84,9 @@ class BotBaccaratPredictor:
     def extraire_donnees_reelles_1xbet(self):
         parametres = {"sport": 110, "chnt": 1, "count": 50, "lang": "fr", "isCyber": "true"}
         
-        # Tunnelisation par proxy résidentiel Smartproxy
-        proxies_config = {
-            "http": f"http://{self.PROXY_USER}:{self.PROXY_PASSWORD}@{self.PROXY_HOST}:{self.PROXY_PORT}",
-            "https://1xbet.com/LiveFeed/GetGamesObjects": f"http://{self.PROXY_USER}:{self.PROXY_PASSWORD}@{self.PROXY_HOST}:{self.PROXY_PORT}"
-        }
-        
         try:
-            session = requests.Session()
-            reponse = session.get(self.url_live, params=parametres, headers=self.headers, proxies=proxies_config, timeout=15)
+            # Exécution de la requête via le scraper simulant un vrai navigateur
+            reponse = self.scraper.get(self.url_live, params=parametres, timeout=15)
             
             if reponse.status_code == 200:
                 donnees = reponse.json()
@@ -122,9 +113,9 @@ class BotBaccaratPredictor:
                             
                         return num_round, enseigne_detectee
             else:
-                print(f"❌ Erreur API 1xBet (Code Statut : {reponse.status_code}). Le proxy a peut-être rejeté la connexion.", flush=True)
+                print(f"❌ Statut API 1xBet : {reponse.status_code}. Tentative de contournement en cours...", flush=True)
         except Exception as e:
-            print(f"⚠️ Échec de la liaison réseau via Smartproxy : {e}", flush=True)
+            print(f"⚠️ Échec de la requête réseau : {e}", flush=True)
         return None, None
 
     def calculer_prediction_motifs(self, num_round):
@@ -166,7 +157,7 @@ class BotBaccaratPredictor:
             print("🤷 Motif de cartes inédit. En attente de nouvelles données historiques...", flush=True)
 
     def executer(self):
-        print("🚀 [START] Lancement du Bot Prédictif Baccara via Smartproxy Résidentiel...", flush=True)
+        print("🚀 [START] Lancement du Bot Prédictif Baccara (Solution Gratuite)...", flush=True)
         self.charger_historique_github()
         
         while True:
@@ -180,7 +171,7 @@ class BotBaccaratPredictor:
             time.sleep(15)
 
 if __name__ == "__main__":
-    print("✨ [SYSTEME] Initialisation des services d'analyse...", flush=True)
+    print("✨ [SYSTEME] Initialisation du moteur de requêtage...", flush=True)
     threading.Thread(target=lancer_serveur_web, daemon=True).start()
     bot = BotBaccaratPredictor()
     bot.executer()
