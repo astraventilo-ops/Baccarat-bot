@@ -6,9 +6,10 @@ import base64
 from flask import Flask
 
 # ==================== CONFIGURATION PRINCIPALE ====================
-DOMAINE_MIROIR = "melbet.com" 
+# Domaine miroir actif d'après tes tests sur navigateur
+DOMAINE_MIROIR = "melbet-m.com" 
 
-# Identifiants extraits de ta capture Webshare (Ligne 1)
+# Identifiants et proxy extraits de ta capture Webshare (Ligne 1)
 PROXY_USER = "ehnefouc"
 PROXY_PASS = "1fu4wk7gts13"
 PROXY_HOST = "31.59.20.176"  # Première adresse IP de ta liste
@@ -19,7 +20,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Predictor Baccara Melbet opérationnel avec IP Webshare dédiée.", 200
+    return "Bot Predictor Baccara Melbet opérationnel - Version Miroir + Proxy Résidentiel.", 200
 
 def lancer_serveur_web():
     import os
@@ -45,7 +46,7 @@ class BotBaccaratMelbetProxy:
             "Origin": f"https://{DOMAINE_MIROIR}"
         }
 
-        # Formatage de la chaîne de proxy pour HTTP et HTTPS
+        # Formatage de la chaîne de proxy requise par la bibliothèque requests
         self.proxies = {
             "http": f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}",
             "https": f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
@@ -96,7 +97,7 @@ class BotBaccaratMelbetProxy:
     def extraire_donnees_melbet(self):
         parametres = {"sport": 110, "chnt": 1, "count": 50, "lang": "fr", "isCyber": "true"}
         try:
-            # La requête passe maintenant de manière transparente par ton IP Webshare résidentielle
+            # Envoi de la requête réseau camouflée vers le miroir actif
             reponse = requests.get(
                 self.url_live, 
                 params=parametres, 
