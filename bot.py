@@ -1,14 +1,21 @@
+import os
 import time
 import threading
 import base64
 import re
 from flask import Flask
+
+# --- FORCE L'INSTALLATION DE CHROMIUM SUR RENDER SI ABSENT ---
+print("📦 Vérification et installation des binaires Chromium...", flush=True)
+os.system("python -m playwright install chromium")
+# -------------------------------------------------------------
+
 from playwright.sync_api import sync_playwright
 
 # ==================== CONFIGURATION PRINCIPALE ====================
 DOMAINE_MIROIR = "melbet-m.com"
 
-# Tes identifiants Webshare
+# Identifiants Webshare
 PROXY_USER = "ehnefouc"
 PROXY_PASS = "1fu4wk7gts13"
 PROXY_HOST = "31.59.20.176"
@@ -24,10 +31,9 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Baccara Avancé - Extraction par sélecteurs actifs.", 200
+    return "Bot Baccara Avancé - Mode Auto-installation Chromium Actif.", 200
 
 def lancer_serveur_web():
-    import os
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
@@ -114,28 +120,23 @@ class BotAutonomeBaccara:
             contexte = navigateur.new_context(proxy=self.proxy_config, user_agent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36")
             page = contexte.new_page()
 
-            # URL directe vers la recherche "bacca" que tu as ouverte
             url_cible = f"https://{DOMAINE_MIROIR}/en/search?q=bacca"
 
             while True:
                 try:
                     page.goto(url_cible, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(4000) # Laisse le temps aux cartes de s'afficher sur l'écran virtuel
+                    page.wait_for_timeout(4000)
 
                     texte_complet = page.inner_text("body")
-                    
-                    # Extraction améliorée : on cherche une suite de 4 chiffres isolée (ex: 1252) dans la zone Baccara
                     tous_les_nombres = re.findall(r'\b\d{4}\b', texte_complet)
                     
                     if tous_les_nombres:
-                        # On prend le premier numéro de round à 4 chiffres trouvé
                         num_round = int(tous_les_nombres[0])
                         
                         if num_round != self.dernier_round_vu and num_round > 1000:
                             self.dernier_round_vu = num_round
                             
-                            # Détection de l'enseigne de la carte sur l'écran
-                            enseigne = 'C'  # Coeur par défaut
+                            enseigne = 'C'  # Par défaut Coeur
                             if "♣️" in texte_complet or "Trèfle" in texte_complet or "Club" in texte_complet: enseigne = 'T'
                             elif "♠️" in texte_complet or "Pique" in texte_complet or "Spade" in texte_complet: enseigne = 'P'
                             elif "♦️" in texte_complet or "Carreau" in texte_complet or "Diamond" in texte_complet: enseigne = 'K'
@@ -143,7 +144,7 @@ class BotAutonomeBaccara:
                             self.sauvegarder_tour_github(enseigne)
                             self.analyser_predictions(num_round)
                     else:
-                        print("⏳ Recherche d'une table active ou attente du chargement des éléments graphiques...", flush=True)
+                        print("⏳ En attente des données de la table...", flush=True)
 
                 except Exception as e:
                     print(f"⚠️ Erreur de lecture de page : {e}", flush=True)
