@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 # ==================== CONFIGURATION PRINCIPALE ====================
 DOMAINE_MIROIR = "melbet-m.com"
 
-# Tes identifiants Webshare (Ligne 1 de ta capture)
+# Tes identifiants Webshare
 PROXY_USER = "ehnefouc"
 PROXY_PASS = "1fu4wk7gts13"
 PROXY_HOST = "31.59.20.176"
@@ -24,7 +24,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Baccara Playwright Autonome Opérationnel.", 200
+    return "Bot Baccara Avancé - Extraction par sélecteurs actifs.", 200
 
 def lancer_serveur_web():
     import os
@@ -110,43 +110,43 @@ class BotAutonomeBaccara:
         self.charger_historique_github()
 
         with sync_playwright() as p:
-            # Lancement du navigateur avec camouflage
             navigateur = p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled', '--no-sandbox'])
             contexte = navigateur.new_context(proxy=self.proxy_config, user_agent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36")
             page = contexte.new_page()
 
-            url_cible = f"https://{DOMAINE_MIROIR}/fr/search-events?searchtext=bacca"
+            # URL directe vers la recherche "bacca" que tu as ouverte
+            url_cible = f"https://{DOMAINE_MIROIR}/en/search?q=bacca"
 
             while True:
                 try:
                     page.goto(url_cible, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(3000) # Attente du chargement des scripts
+                    page.wait_for_timeout(4000) # Laisse le temps aux cartes de s'afficher sur l'écran virtuel
 
-                    # Recherche des textes liés au Baccara sur la page
-                    contenu_page = page.content()
+                    texte_complet = page.inner_text("body")
                     
-                    # Extraction du numéro de round visible (ex: "Baccara 1252")
-                    match_round = re.search(r'Baccara\s*(\d+)', contenu_page, re.IGNORECASE)
+                    # Extraction améliorée : on cherche une suite de 4 chiffres isolée (ex: 1252) dans la zone Baccara
+                    tous_les_nombres = re.findall(r'\b\d{4}\b', texte_complet)
                     
-                    if match_round:
-                        num_round = int(match_round.group(1))
+                    if tous_les_nombres:
+                        # On prend le premier numéro de round à 4 chiffres trouvé
+                        num_round = int(tous_les_nombres[0])
                         
-                        if num_round != self.dernier_round_vu:
+                        if num_round != self.dernier_round_vu and num_round > 1000:
                             self.dernier_round_vu = num_round
                             
-                            # Détection de l'enseigne de la carte distribuée
-                            enseigne = 'C'  # Par défaut Cœur si présent
-                            if "♣️" in contenu_page or "Trèfle" in contenu_page: enseigne = 'T'
-                            elif "♠️" in contenu_page or "Pique" in contenu_page: enseigne = 'P'
-                            elif "♦️" in contenu_page or "Carreau" in contenu_page: enseigne = 'K'
+                            # Détection de l'enseigne de la carte sur l'écran
+                            enseigne = 'C'  # Coeur par défaut
+                            if "♣️" in texte_complet or "Trèfle" in texte_complet or "Club" in texte_complet: enseigne = 'T'
+                            elif "♠️" in texte_complet or "Pique" in texte_complet or "Spade" in texte_complet: enseigne = 'P'
+                            elif "♦️" in texte_complet or "Carreau" in texte_complet or "Diamond" in texte_complet: enseigne = 'K'
                             
                             self.sauvegarder_tour_github(enseigne)
                             self.analyser_predictions(num_round)
                     else:
-                        print("⏳ En attente de l'apparition d'une table de Baccara active...", flush=True)
+                        print("⏳ Recherche d'une table active ou attente du chargement des éléments graphiques...", flush=True)
 
                 except Exception as e:
-                    print(f"⚠️ Une erreur est survenue lors de la lecture de la page : {e}", flush=True)
+                    print(f"⚠️ Erreur de lecture de page : {e}", flush=True)
                 
                 time.sleep(15)
 
