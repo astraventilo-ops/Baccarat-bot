@@ -5,23 +5,20 @@ import base64
 import re
 from flask import Flask
 
-# --- FORCE L'INSTALLATION DE CHROMIUM SUR RENDER SI ABSENT ---
 print("📦 Vérification et installation des binaires Chromium...", flush=True)
 os.system("python -m playwright install chromium")
-# -------------------------------------------------------------
 
 from playwright.sync_api import sync_playwright
 
 # ==================== CONFIGURATION PRINCIPALE ====================
-DOMAINE_MIROIR = "melbet-m.com"
+# Ton URL exacte trouvée lors de ton test
+URL_CIBLE = "https://melbet-m.com/en/search-events?searchtext=baccar"
 
-# Identifiants Webshare
 PROXY_USER = "ehnefouc"
 PROXY_PASS = "1fu4wk7gts13"
 PROXY_HOST = "31.59.20.176"
 PROXY_PORT = "6754"
 
-# Configuration GitHub
 GITHUB_TOKEN = "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"
 REPO_NAME = "astraventilo-ops/Baccarat-bot"
 FILE_PATH = "base_donnees.txt"
@@ -31,7 +28,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Baccara Avancé - Mode Auto-installation Chromium Actif.", 200
+    return "Bot Baccara - Extraction Directe Live Active.", 200
 
 def lancer_serveur_web():
     port = int(os.environ.get("PORT", 10000))
@@ -120,36 +117,43 @@ class BotAutonomeBaccara:
             contexte = navigateur.new_context(proxy=self.proxy_config, user_agent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36")
             page = contexte.new_page()
 
-            url_cible = f"https://{DOMAINE_MIROIR}/en/search?q=bacca"
-
             while True:
                 try:
-                    page.goto(url_cible, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(4000)
+                    page.goto(URL_CIBLE, wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(5000) # Laisse la page Live se charger à 100%
 
                     texte_complet = page.inner_text("body")
-                    tous_les_nombres = re.findall(r'\b\d{4}\b', texte_complet)
+                    
+                    # Extraction des nombres isolés à 3 ou 4 chiffres (comme 727, 728) situés près des mentions de score
+                    tous_les_nombres = re.findall(r'\b\d{3,4}\b', texte_complet)
                     
                     if tous_les_nombres:
-                        num_round = int(tous_les_nombres[0])
+                        # Filtrer pour s'assurer qu'on ne prend pas des scores (comme 7 ou 0) mais bien l'identifiant du round
+                        num_round = None
+                        for n in tous_les_nombres:
+                            val = int(n)
+                            if 500 <= val <= 9999: # Zone typique des identifiants de rounds vus sur tes captures
+                                num_round = val
+                                break
                         
-                        if num_round != self.dernier_round_vu and num_round > 1000:
+                        if num_round and num_round != self.dernier_round_vu:
                             self.dernier_round_vu = num_round
                             
-                            enseigne = 'C'  # Par défaut Coeur
-                            if "♣️" in texte_complet or "Trèfle" in texte_complet or "Club" in texte_complet: enseigne = 'T'
-                            elif "♠️" in texte_complet or "Pique" in texte_complet or "Spade" in texte_complet: enseigne = 'P'
-                            elif "♦️" in texte_complet or "Carreau" in texte_complet or "Diamond" in texte_complet: enseigne = 'K'
+                            # Lecture dynamique des cartes ou des enseignes affichées dans la zone Live
+                            enseigne = 'C'  # Valeur par défaut
+                            if "♣️" in texte_complet or "Club" in texte_complet: enseigne = 'T'
+                            elif "♠️" in texte_complet or "Spade" in texte_complet: enseigne = 'P'
+                            elif "♦️" in texte_complet or "Diamond" in texte_complet: enseigne = 'K'
                             
                             self.sauvegarder_tour_github(enseigne)
                             self.analyser_predictions(num_round)
                     else:
-                        print("⏳ En attente des données de la table...", flush=True)
+                        print("⏳ Flux en direct vide ou en attente d'actualisation...", flush=True)
 
                 except Exception as e:
-                    print(f"⚠️ Erreur de lecture de page : {e}", flush=True)
+                    print(f"⚠️ Erreur de synchronisation de la page : {e}", flush=True)
                 
-                time.sleep(15)
+                time.sleep(12) # Intervalle idéal pour suivre le rythme du live sans surcharge
 
             navigateur.close()
 
