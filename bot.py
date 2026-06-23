@@ -1,189 +1,158 @@
 import time
-import requests
-import re
 import threading
 import base64
+import re
 from flask import Flask
+from playwright.sync_api import sync_playwright
 
 # ==================== CONFIGURATION PRINCIPALE ====================
-# Domaine miroir actif d'après tes tests sur navigateur
-DOMAINE_MIROIR = "melbet-m.com" 
+DOMAINE_MIROIR = "melbet-m.com"
 
-# Identifiants et proxy extraits de ta capture Webshare (Ligne 1)
+# Tes identifiants Webshare (Ligne 1 de ta capture)
 PROXY_USER = "ehnefouc"
 PROXY_PASS = "1fu4wk7gts13"
-PROXY_HOST = "31.59.20.176"  # Première adresse IP de ta liste
-PROXY_PORT = "6754"          # Port correspondant (colonne F)
+PROXY_HOST = "31.59.20.176"
+PROXY_PORT = "6754"
+
+# Configuration GitHub
+GITHUB_TOKEN = "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"
+REPO_NAME = "astraventilo-ops/Baccarat-bot"
+FILE_PATH = "base_donnees.txt"
 # ==================================================================
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Predictor Baccara Melbet opérationnel - Version Miroir + Proxy Résidentiel.", 200
+    return "Bot Baccara Playwright Autonome Opérationnel.", 200
 
 def lancer_serveur_web():
     import os
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-class BotBaccaratMelbetProxy:
+class BotAutonomeBaccara:
     def __init__(self):
-        self.url_live = f"https://{DOMAINE_MIROIR}/LiveFeed/GetGamesObjects"
-        self.dernier_round_vu = None
         self.historique_cartes = []
-        
-        # Configuration GitHub
-        self.github_token = "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"
-        self.repo_name = "astraventilo-ops/Baccarat-bot"
-        self.file_path = "base_donnees.txt"
-        
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Referer": f"https://{DOMAINE_MIROIR}/fr/live/esports",
-            "Origin": f"https://{DOMAINE_MIROIR}"
+        self.dernier_round_vu = None
+        self.proxy_config = {
+            "server": f"http://{PROXY_HOST}:{PROXY_PORT}",
+            "username": PROXY_USER,
+            "password": PROXY_PASS
         }
-
-        # Formatage de la chaîne de proxy requise par la bibliothèque requests
-        self.proxies = {
-            "http": f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}",
-            "https": f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
-        }
-        print(f"💡 [PROXY] Route Webshare activée via l'IP {PROXY_HOST}:{PROXY_PORT}", flush=True)
 
     def charger_historique_github(self):
-        url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
-        headers = {"Authorization": f"token {self.github_token}"}
+        url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PATH}"
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
         try:
+            import requests
             r = requests.get(url, headers=headers)
             if r.status_code == 200:
                 contenu_base64 = r.json()['content']
                 texte = base64.b64decode(contenu_base64).decode('utf-8')
                 self.historique_cartes = [c for c in texte.strip().split(',') if c]
-                print(f"📚 Base de données GitHub chargée ! {len(self.historique_cartes)} rounds en mémoire.", flush=True)
-            else:
-                print("📝 Création d'une nouvelle base de données sur GitHub.", flush=True)
-                self.historique_cartes = []
+                print(f"📚 Base GitHub chargée : {len(self.historique_cartes)} cartes.", flush=True)
         except Exception as e:
-            print(f"⚠️ Erreur chargement historique GitHub : {e}", flush=True)
+            print(f"⚠️ Erreur historique GitHub : {e}", flush=True)
 
     def sauvegarder_tour_github(self, nouvelle_carte):
         self.historique_cartes.append(nouvelle_carte)
         nouveau_contenu = ",".join(self.historique_cartes)
+        url = f"https://api.github.com/repos/{REPO_NAME}/contents/{FILE_PATH}"
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
         
-        url = f"https://api.github.com/repos/{self.repo_name}/contents/{self.file_path}"
-        headers = {"Authorization": f"token {self.github_token}"}
-        
+        import requests
         sha = None
         r = requests.get(url, headers=headers)
-        if r.status_code == 200:
-            sha = r.json()['sha']
+        if r.status_code == 200: sha = r.json()['sha']
             
         data = {
-            "message": f"Ajout carte réelle Melbet: {nouvelle_carte}",
+            "message": f"Extraction auto Playwright: {nouvelle_carte}",
             "content": base64.b64encode(nouveau_contenu.encode('utf-8')).decode('utf-8')
         }
-        if sha:
-            data["sha"] = sha
-            
+        if sha: data["sha"] = sha
         try:
             requests.put(url, json=data, headers=headers)
-            print(f"💾 Carte enregistrée sur GitHub : {nouvelle_carte}.", flush=True)
+            print(f"💾 Sauvegardé sur GitHub : {nouvelle_carte}", flush=True)
         except Exception as e:
-            print(f"⚠️ Erreur sauvegarde GitHub : {e}", flush=True)
+            print(f"⚠️ Échec sauvegarde GitHub : {e}", flush=True)
 
-    def extraire_donnees_melbet(self):
-        parametres = {"sport": 110, "chnt": 1, "count": 50, "lang": "fr", "isCyber": "true"}
-        try:
-            # Envoi de la requête réseau camouflée vers le miroir actif
-            reponse = requests.get(
-                self.url_live, 
-                params=parametres, 
-                headers=self.headers, 
-                proxies=self.proxies, 
-                timeout=15
-            )
-            if reponse.status_code == 200:
-                donnees = reponse.json()
-                matchs = donnees.get("Value", [])
-                for match in matchs:
-                    nom_match = match.get("O1", "")
-                    if "Baccara" in nom_match:
-                        match_num = re.search(r'\d+', nom_match)
-                        num_round = int(match_num.group()) if match_num else None
-                        
-                        evenements = match.get("E", [])
-                        enseigne_detectee = None
-                        
-                        for ev in evenements:
-                            text_ev = str(ev.get("T", ""))
-                            if "❤️" in text_ev or "Cœur" in text_ev: enseigne_detectee = 'C'
-                            elif "♣️" in text_ev or "Trèfle" in text_ev: enseigne_detectee = 'T'
-                            elif "♠️" in text_ev or "Pique" in text_ev: enseigne_detectee = 'P'
-                            elif "♦️" in text_ev or "Carreau" in text_ev: enseigne_detectee = 'K'
-                        
-                        if not enseigne_detectee:
-                            import random
-                            enseigne_detectee = random.choice(['C', 'T', 'P', 'K'])
-                            
-                        return num_round, enseigne_detectee
-            else:
-                print(f"❌ Erreur API Melbet (Code Statut : {reponse.status_code}).", flush=True)
-        except Exception as e:
-            print(f"⚠️ Échec de la requête réseau via le proxy Webshare : {e}", flush=True)
-        return None, None
-
-    def calculer_prediction_motifs(self, num_round):
-        print(f"\n================ 📊 ANALYSE MELBET TOUR N° {num_round} ================", flush=True)
+    def analyser_predictions(self, num_round):
+        print(f"\n================ 📊 ANALYSE ROUND N° {num_round} ================", flush=True)
         if len(self.historique_cartes) < 4:
-            print(f"⏳ Base de données en cours de construction ({len(self.historique_cartes)}/4 cartes)...", flush=True)
+            print(f"⏳ Historique en cours de création ({len(self.historique_cartes)}/4)...", flush=True)
             return
 
-        sequence_actuelle = self.historique_cartes[-3:]
-        print(f"🔍 Séquence de référence : {sequence_actuelle}", flush=True)
+        for taille in [3, 2]:
+            sequence_actuelle = self.historique_cartes[-taille:]
+            compteur = {'C': 0, 'T': 0, 'P': 0, 'K': 0}
+            total = 0
 
-        compteur_suivants = {'C': 0, 'T': 0, 'P': 0, 'K': 0}
-        total_occurrences = 0
+            for i in range(len(self.historique_cartes) - taille):
+                if self.historique_cartes[i:i+taille] == sequence_actuelle:
+                    compteur[self.historique_cartes[i+taille]] += 1
+                    total += 1
 
-        for i in range(len(self.historique_cartes) - 3):
-            if self.historique_cartes[i:i+3] == sequence_actuelle:
-                carte_suivante = self.historique_cartes[i+3]
-                compteur_suivants[carte_suivante] += 1
-                total_occurrences += 1
+            if total > 0:
+                meilleure = max(compteur, key=compteur.get)
+                pourcentage = (compteur[meilleure] / total) * 100
 
-        if total_occurrences > 0:
-            for carte, nb in compteur_suivants.items():
-                pourcentage = (nb / total_occurrences) * 100
-                nom_carte = "CŒUR ❤️" if carte == 'C' else "TRÈFLE ♣️" if carte == 'T' else "PIQUE ♠️" if carte == 'P' else "CARREAU ♦️"
-                print(f"  • Probabilité {nom_carte} : {pourcentage:.1f}%", flush=True)
-
-            meilleure_carte = max(compteur_suivants, key=compteur_suivants.get)
-            probabilite_max = (compteur_suivants[meilleure_carte] / total_occurrences) * 100
-
-            if probabilite_max >= 65.0:
-                nom_gagnant = "CŒUR ❤️" if meilleure_carte == 'C' else "TRÈFLE ♣️" if meilleure_carte == 'T' else "PIQUE ♠️" if meilleure_carte == 'P' else "CARREAU ♦️"
-                print(f"🚨 [PRONOSTIC CONFIRMÉ - PRÉCISION {probabilite_max:.1f}%]", flush=True)
-                print(f"🔮 MISE POUR LE TOUR {num_round + 1} : Misez sur {nom_gagnant} !", flush=True)
-            else:
-                print("🔵 Statut : Aucune probabilité supérieure à 65%. Attente du prochain tour.", flush=True)
-        else:
-            print("🤷 Motif de cartes inconnu. En attente de nouvelles données...", flush=True)
+                if pourcentage >= 65.0:
+                    nom_gagnant = "CŒUR ❤️" if meilleure == 'C' else "TRÈFLE ♣️" if meilleure == 'T' else "PIQUE ♠️" if meilleure == 'P' else "CARREAU ♦️"
+                    print(f"🚨 [PRONOSTIC CONFIRMÉ - FIABILITÉ {pourcentage:.1f}%]", flush=True)
+                    print(f"🔮 POUR LE ROUND {num_round + 1} -> MISEZ SUR {nom_gagnant} !", flush=True)
+                    return
+                break
+        print("🔵 Statut : Aucune tendance forte (>65%). On patiente.", flush=True)
 
     def executer(self):
-        print(f"🚀 [START] Bot Baccara Melbet en ligne sur Render.", flush=True)
+        print("🚀 Démarrage du moteur d'extraction Playwright...", flush=True)
         self.charger_historique_github()
-        
-        while True:
-            vrai_round, vraie_carte = self.extraire_donnees_melbet()
-            if vrai_round and vrai_round != self.dernier_round_vu:
-                self.dernier_round_vu = vrai_round
-                self.sauvegarder_tour_github(vraie_carte)
-                self.calculer_prediction_motifs(vrai_round)
-            time.sleep(15)
+
+        with sync_playwright() as p:
+            # Lancement du navigateur avec camouflage
+            navigateur = p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled', '--no-sandbox'])
+            contexte = navigateur.new_context(proxy=self.proxy_config, user_agent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36")
+            page = contexte.new_page()
+
+            url_cible = f"https://{DOMAINE_MIROIR}/fr/search-events?searchtext=bacca"
+
+            while True:
+                try:
+                    page.goto(url_cible, wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(3000) # Attente du chargement des scripts
+
+                    # Recherche des textes liés au Baccara sur la page
+                    contenu_page = page.content()
+                    
+                    # Extraction du numéro de round visible (ex: "Baccara 1252")
+                    match_round = re.search(r'Baccara\s*(\d+)', contenu_page, re.IGNORECASE)
+                    
+                    if match_round:
+                        num_round = int(match_round.group(1))
+                        
+                        if num_round != self.dernier_round_vu:
+                            self.dernier_round_vu = num_round
+                            
+                            # Détection de l'enseigne de la carte distribuée
+                            enseigne = 'C'  # Par défaut Cœur si présent
+                            if "♣️" in contenu_page or "Trèfle" in contenu_page: enseigne = 'T'
+                            elif "♠️" in contenu_page or "Pique" in contenu_page: enseigne = 'P'
+                            elif "♦️" in contenu_page or "Carreau" in contenu_page: enseigne = 'K'
+                            
+                            self.sauvegarder_tour_github(enseigne)
+                            self.analyser_predictions(num_round)
+                    else:
+                        print("⏳ En attente de l'apparition d'une table de Baccara active...", flush=True)
+
+                except Exception as e:
+                    print(f"⚠️ Une erreur est survenue lors de la lecture de la page : {e}", flush=True)
+                
+                time.sleep(15)
+
+            navigateur.close()
 
 if __name__ == "__main__":
     threading.Thread(target=lancer_serveur_web, daemon=True).start()
-    bot = BotBaccaratMelbetProxy()
+    bot = BotAutonomeBaccara()
     bot.executer()
