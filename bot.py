@@ -11,8 +11,7 @@ os.system("python -m playwright install chromium")
 from playwright.sync_api import sync_playwright
 
 # ==================== CONFIGURATION PRINCIPALE ====================
-# Ton URL exacte trouvée lors de ton test
-URL_CIBLE = "https://melbet-m.com/en/search-events?searchtext=baccar"
+URL_LISTE = "https://melbet-m.com/en/search-events?searchtext=baccar"
 
 PROXY_USER = "ehnefouc"
 PROXY_PASS = "1fu4wk7gts13"
@@ -28,7 +27,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Bot Baccara - Extraction Directe Live Active.", 200
+    return "Bot Baccara - Analyse Enseignes Cartes Active.", 200
 
 def lancer_serveur_web():
     port = int(os.environ.get("PORT", 10000))
@@ -70,7 +69,7 @@ class BotAutonomeBaccara:
         if r.status_code == 200: sha = r.json()['sha']
             
         data = {
-            "message": f"Extraction auto Playwright: {nouvelle_carte}",
+            "message": f"Extraction Enseigne Playwright: {nouvelle_carte}",
             "content": base64.b64encode(nouveau_contenu.encode('utf-8')).decode('utf-8')
         }
         if sha: data["sha"] = sha
@@ -81,9 +80,9 @@ class BotAutonomeBaccara:
             print(f"⚠️ Échec sauvegarde GitHub : {e}", flush=True)
 
     def analyser_predictions(self, num_round):
-        print(f"\n================ 📊 ANALYSE ROUND N° {num_round} ================", flush=True)
+        print(f"\n================ 📊 ANALYSE ENSEIGNES ROUND N° {num_round} ================", flush=True)
         if len(self.historique_cartes) < 4:
-            print(f"⏳ Historique en cours de création ({len(self.historique_cartes)}/4)...", flush=True)
+            print(f"⏳ Historique insuffisant ({len(self.historique_cartes)}/4)...", flush=True)
             return
 
         for taille in [3, 2]:
@@ -102,11 +101,11 @@ class BotAutonomeBaccara:
 
                 if pourcentage >= 65.0:
                     nom_gagnant = "CŒUR ❤️" if meilleure == 'C' else "TRÈFLE ♣️" if meilleure == 'T' else "PIQUE ♠️" if meilleure == 'P' else "CARREAU ♦️"
-                    print(f"🚨 [PRONOSTIC CONFIRMÉ - FIABILITÉ {pourcentage:.1f}%]", flush=True)
-                    print(f"🔮 POUR LE ROUND {num_round + 1} -> MISEZ SUR {nom_gagnant} !", flush=True)
+                    print(f"🚨 [PRONOSTIC ENSEIGNE JOUEUR FIABILITÉ {pourcentage:.1f}%]", flush=True)
+                    print(f"🔮 ROUND {num_round + 1} -> LE JOUEUR VA OBTENIR UN : {nom_gagnant} !", flush=True)
                     return
                 break
-        print("🔵 Statut : Aucune tendance forte (>65%). On patiente.", flush=True)
+        print("🔵 Statut : Pas de tendance claire sur les enseignes. On attend.", flush=True)
 
     def executer(self):
         print("🚀 Démarrage du moteur d'extraction Playwright...", flush=True)
@@ -119,41 +118,46 @@ class BotAutonomeBaccara:
 
             while True:
                 try:
-                    page.goto(URL_CIBLE, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(5000) # Laisse la page Live se charger à 100%
+                    # 1. Aller sur la page de recherche
+                    page.goto(URL_LISTE, wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(4000)
 
-                    texte_complet = page.inner_text("body")
-                    
-                    # Extraction des nombres isolés à 3 ou 4 chiffres (comme 727, 728) situés près des mentions de score
-                    tous_les_nombres = re.findall(r'\b\d{3,4}\b', texte_complet)
-                    
-                    if tous_les_nombres:
-                        # Filtrer pour s'assurer qu'on ne prend pas des scores (comme 7 ou 0) mais bien l'identifiant du round
-                        num_round = None
-                        for n in tous_les_nombres:
-                            val = int(n)
-                            if 500 <= val <= 9999: # Zone typique des identifiants de rounds vus sur tes captures
-                                num_round = val
-                                break
+                    # 2. Cliquer sur le premier match de baccara en direct pour entrer dans l'interface détaillée
+                    # On cible l'élément textuel ou un bloc contenant "Baccara"
+                    elements_match = page.locator("//div[contains(text(), 'Baccara')] | //span[contains(text(), 'Baccara')]")
+                    if elements_match.count() > 0:
+                        elements_match.first.click()
+                        page.wait_for_timeout(5000) # Laisse l'interface bleue se charger
                         
-                        if num_round and num_round != self.dernier_round_vu:
-                            self.dernier_round_vu = num_round
+                        texte_interne = page.inner_text("body")
+                        
+                        # Extraction du numéro de round (ex: №761)
+                        match_round = re.search(r'(?:№|N°)\s*(\d+)', texte_interne)
+                        
+                        if match_round:
+                            num_round = int(match_round.group(1))
                             
-                            # Lecture dynamique des cartes ou des enseignes affichées dans la zone Live
-                            enseigne = 'C'  # Valeur par défaut
-                            if "♣️" in texte_complet or "Club" in texte_complet: enseigne = 'T'
-                            elif "♠️" in texte_complet or "Spade" in texte_complet: enseigne = 'P'
-                            elif "♦️" in texte_complet or "Diamond" in texte_complet: enseigne = 'K'
-                            
-                            self.sauvegarder_tour_github(enseigne)
-                            self.analyser_predictions(num_round)
+                            if num_round != self.dernier_round_vu:
+                                self.dernier_round_vu = num_round
+                                
+                                # Détection de l'enseigne distribuée au Joueur dans la zone de score/cartes
+                                # On inspecte le texte complet à la recherche des marqueurs visuels
+                                enseigne = 'C' 
+                                if "♣️" in texte_interne or "Trèfle" in texte_interne or "Club" in texte_interne: enseigne = 'T'
+                                elif "♠️" in texte_interne or "Pique" in texte_interne or "Spade" in texte_interne: enseigne = 'P'
+                                elif "♦️" in texte_interne or "Carreau" in texte_interne or "Diamond" in texte_interne: enseigne = 'K'
+                                
+                                self.sauvegarder_tour_github(enseigne)
+                                self.analyser_predictions(num_round)
+                        else:
+                            print("⏳ Connecté à la table, en attente du numéro de round...", flush=True)
                     else:
-                        print("⏳ Flux en direct vide ou en attente d'actualisation...", flush=True)
+                        print("⏳ Aucun match de Baccara Live trouvé sur la page de recherche...", flush=True)
 
                 except Exception as e:
-                    print(f"⚠️ Erreur de synchronisation de la page : {e}", flush=True)
+                    print(f"⚠️ Erreur de navigation/lecture : {e}", flush=True)
                 
-                time.sleep(12) # Intervalle idéal pour suivre le rythme du live sans surcharge
+                time.sleep(15)
 
             navigateur.close()
 
