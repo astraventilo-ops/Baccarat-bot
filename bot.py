@@ -11,6 +11,7 @@ os.system("python -m playwright install chromium")
 from playwright.sync_api import sync_playwright
 
 # ==================== CONFIGURATION PRINCIPALE ====================
+# Lien de recherche direct vers le live Baccarat
 URL_LISTE = "https://melbet-m.com/en/search-events?searchtext=baccar"
 
 PROXY_USER = "ehnefouc"
@@ -118,50 +119,62 @@ class BotAutonomeBaccara:
 
             while True:
                 try:
-                    # 1. Aller sur la page de recherche
-                    page.goto(URL_LISTE, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(4000)
-
-                    # 2. Cliquer sur le premier match de baccara en direct pour entrer dans l'interface détaillée
-                    # On cible l'élément textuel ou un bloc contenant "Baccara"
-                    elements_match = page.locator("//div[contains(text(), 'Baccara')] | //span[contains(text(), 'Baccara')]")
-                    if elements_match.count() > 0:
-                        elements_match.first.click()
-                        page.wait_for_timeout(5000) # Laisse l'interface bleue se charger
+                    # 1. Charger la page de liste avec attente de la fin de l'activité réseau
+                    page.goto(URL_LISTE, wait_until="networkidle", timeout=45000)
+                    
+                    # 2. Sélecteur XPath insensible à la casse pour attraper "Baccara" ou "Baccarat"
+                    sélecteur_match = "//div[contains(translate(text(), 'BACCARAT', 'baccarat'), 'baccara')]"
+                    
+                    try:
+                        # On laisse jusqu'à 12 secondes au script JS de Melbet pour injecter les tables live
+                        page.wait_for_selector(sélecteur_match, timeout=12000)
+                        elements_match = page.locator(sélecteur_match)
                         
-                        texte_interne = page.inner_text("body")
-                        
-                        # Extraction du numéro de round (ex: №761)
-                        match_round = re.search(r'(?:№|N°)\s*(\d+)', texte_interne)
-                        
-                        if match_round:
-                            num_round = int(match_round.group(1))
+                        if elements_match.count() > 0:
+                            # 3. Clic sur la première table active disponible
+                            elements_match.first.click()
+                            print("🎯 Table Baccara repérée ! Ouverture de l'interface détaillée...", flush=True)
                             
-                            if num_round != self.dernier_round_vu:
-                                self.dernier_round_vu = num_round
+                            # On attend que l'interface bleue charge ses données intérieures
+                            page.wait_for_timeout(6000) 
+                            
+                            texte_interne = page.inner_text("body")
+                            
+                            # Extraction du numéro de round (ex: №761)
+                            match_round = re.search(r'(?:№|N°)\s*(\d+)', texte_interne)
+                            
+                            if match_round:
+                                num_round = int(match_round.group(1))
                                 
-                                # Détection de l'enseigne distribuée au Joueur dans la zone de score/cartes
-                                # On inspecte le texte complet à la recherche des marqueurs visuels
-                                enseigne = 'C' 
-                                if "♣️" in texte_interne or "Trèfle" in texte_interne or "Club" in texte_interne: enseigne = 'T'
-                                elif "♠️" in texte_interne or "Pique" in texte_interne or "Spade" in texte_interne: enseigne = 'P'
-                                elif "♦️" in texte_interne or "Carreau" in texte_interne or "Diamond" in texte_interne: enseigne = 'K'
-                                
-                                self.sauvegarder_tour_github(enseigne)
-                                self.analyser_predictions(num_round)
+                                if num_round != self.dernier_round_vu:
+                                    self.dernier_round_vu = num_round
+                                    
+                                    # Détection de l'enseigne dans la zone des cartes tirées pour le Joueur
+                                    enseigne = 'C' 
+                                    if "♣️" in texte_interne or "Trèfle" in texte_interne or "Club" in texte_interne: enseigne = 'T'
+                                    elif "♠️" in texte_interne or "Pique" in texte_interne or "Spade" in texte_interne: enseigne = 'P'
+                                    elif "♦️" in texte_interne or "Carreau" in texte_interne or "Diamond" in texte_interne: enseigne = 'K'
+                                    
+                                    self.sauvegarder_tour_github(enseigne)
+                                    self.analyser_predictions(num_round)
+                            else:
+                                print("⏳ Connecté à l'interface, attente de l'affichage du numéro de round...", flush=True)
                         else:
-                            print("⏳ Connecté à la table, en attente du numéro de round...", flush=True)
-                    else:
-                        print("⏳ Aucun match de Baccara Live trouvé sur la page de recherche...", flush=True)
+                            print("⏳ Les tables de Baccara ne sont pas encore visibles sur la page.", flush=True)
+                            
+                    except Exception as timeout_error:
+                        print("⏳ Contenu dynamique long à charger. Re-tentative au prochain cycle...", flush=True)
 
                 except Exception as e:
-                    print(f"⚠️ Erreur de navigation/lecture : {e}", flush=True)
+                    print(f"⚠️ Erreur lors de la session de navigation : {e}", flush=True)
                 
+                # Attente entre deux vérifications
                 time.sleep(15)
 
             navigateur.close()
 
 if __name__ == "__main__":
+    # Lancement du serveur Web Flask pour garder l'instance Render active
     threading.Thread(target=lancer_serveur_web, daemon=True).start()
     bot = BotAutonomeBaccara()
     bot.executer()
